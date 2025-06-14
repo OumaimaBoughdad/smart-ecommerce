@@ -1,28 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dashboard
+  name: scraper
   labels:
-    app: dashboard
+    app: scraper
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dashboard
+      app: scraper
   template:
     metadata:
       labels:
-        app: dashboard
+        app: scraper
     spec:
       containers:
-      - name: dashboard
-        image: oumaimaboughdad/ecommerce_llm:latest
+      - name: scraper
+        image: oumaimaboughdad/ecommerce_scraper:latest
         imagePullPolicy: Always
-        ports:
-        - containerPort: 8501
         volumeMounts:
         - name: data-volume
-          mountPath: /app/data
+          mountPath: /data
       volumes:
       - name: data-volume
         persistentVolumeClaim:
@@ -31,11 +29,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dashboard-service
+  name: scraper-service
 spec:
   selector:
-    app: dashboard
+    app: scraper
   ports:
-  - port: 8501
-    targetPort: 8501
-  type: NodePort
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

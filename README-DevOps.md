@@ -1,145 +1,105 @@
-# DevOps Pipeline for Smart eCommerce Project
+# E-commerce ML Application - DevOps Guide
 
-This document outlines the DevOps pipeline setup for the Smart eCommerce project, including Dockerization, CI/CD with GitHub Actions, Kubeflow Pipeline, and local Kubernetes deployment.
+This guide explains how to deploy and manage the E-commerce ML application using DevOps practices.
 
-## Overview
+## Components
 
-The DevOps pipeline consists of:
+1. **ML Model Service**: Analyzes product data and generates rankings
+2. **MCP Server**: Implements Model Context Protocol for responsible AI
+3. **Shared Data Volume**: Stores product data and model outputs
 
-1. **Dockerization** of three main components:
-   - Scraping agent (Python + Selenium/BeautifulSoup)
-   - ML model (Python + scikit-learn)
-   - BI dashboard (Streamlit)
+## Deployment Instructions
 
-2. **CI/CD with GitHub Actions**:
-   - Automated testing with pytest
-   - Docker image builds
-   - Push to Docker Hub
-
-3. **Kubeflow Pipeline**:
-   - Data preprocessing
-   - Model training
-   - Top-K product selection
-
-4. **Local Kubernetes Deployment**:
-   - Minikube with Docker driver
-   - Kubernetes manifests for deployments and services
-
-## Prerequisites
+### Prerequisites
 
 - Docker installed
-- Minikube installed
-- kubectl installed
-- Python 3.9+
-- Docker Hub account
+- Kubernetes cluster (Minikube for local development)
+- kubectl configured
 
-## Setup Instructions
+### Quick Deployment
 
-### 1. Clone the Repository
+Run the comprehensive deployment script:
+
+```powershell
+# PowerShell
+.\build-and-deploy-all.ps1
+```
+
+### Manual Deployment Steps
+
+1. **Build and push Docker images**:
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+# ML Model
+cd Analyse-et-s-lection-des-Top-K-produits
+docker build -t oumaimaboughdad/ecommerce_ml:latest .
+docker push oumaimaboughdad/ecommerce_ml:latest
+
+# MCP Server
+cd ../Architecture_responsable_avec_Model_Context_Protocol-
+docker build -t oumaimaboughdad/ecommerce_mcp:latest .
+docker push oumaimaboughdad/ecommerce_mcp:latest
 ```
 
-### 2. Set Up Docker Hub Secrets
-
-For GitHub Actions to push to Docker Hub, add these secrets to your GitHub repository:
-
-- `DOCKER_HUB_USERNAME`: Your Docker Hub username
-- `DOCKER_HUB_ACCESS_TOKEN`: Your Docker Hub access token
-
-### 3. Local Development and Testing
-
-Build Docker images locally:
+2. **Deploy to Kubernetes**:
 
 ```bash
-# Build scraper image
-cd agent_scraping
-docker build -t ecommerce-scraper .
+# Apply PVC
+kubectl apply -f k8s/pvc.yaml
 
-# Build ML model image
-cd ../Analyse-et-s-lection-des-Top-K-produits
-docker build -t ecommerce-ml .
+# Apply ConfigMap with product data
+kubectl apply -f k8s/optimized-csv-configmap.yaml
 
-# Build dashboard image
-cd ../LLM_pour_enrichissement-et-synthese
-docker build -t ecommerce-dashboard .
+# Deploy ML model
+kubectl apply -f k8s/ml-model-deployment-latest.yaml
+
+# Deploy MCP server
+kubectl apply -f k8s/mcp-deployment.yaml
 ```
 
-### 4. Set Up Minikube and Kubeflow
+## Monitoring
 
-Run the setup script:
+Check the status of your deployments:
 
 ```bash
-chmod +x setup-minikube.sh
-./setup-minikube.sh
+kubectl get pods
+kubectl get services
 ```
 
-This script will:
-- Start Minikube with Docker driver
-- Enable necessary addons
-- Install Kubeflow Pipelines
-- Create PVC for data sharing
-- Deploy applications to Kubernetes
-
-### 5. Run Kubeflow Pipeline
+View logs:
 
 ```bash
-# Compile the pipeline
-python kubeflow-pipeline.py
+# ML Model logs
+kubectl logs -l app=ml-model
 
-# Upload and run the pipeline using the Kubeflow UI
-# Access the UI at the URL provided by the setup script
-```
-
-## Project Structure
-
-```
-.
-├── agent_scraping/
-│   ├── Dockerfile
-│   ├── diverse_scraper.py
-│   └── requirements.txt
-├── Analyse-et-s-lection-des-Top-K-produits/
-│   ├── Dockerfile
-│   ├── model_training.py
-│   └── requirements.txt
-├── LLM_pour_enrichissement-et-synthese/
-│   ├── Dockerfile
-│   ├── app_streamlit.py
-│   └── requirements.txt
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml
-├── k8s/
-│   ├── ml-model-deployment.yaml
-│   ├── dashboard-deployment.yaml
-│   └── pvc.yaml
-├── kubeflow-pipeline.py
-└── setup-minikube.sh
+# MCP Server logs
+kubectl logs -l app=mcp-server
 ```
 
 ## Troubleshooting
 
-### Docker Issues
+If pods are not starting:
 
-- **Image pull errors**: Ensure Docker Hub credentials are correct
-- **Build failures**: Check Dockerfile syntax and dependencies
+1. Check pod status: `kubectl describe pod <pod-name>`
+2. Check logs: `kubectl logs <pod-name>`
+3. Verify ConfigMap: `kubectl get configmap produits-scrapy-csv -o yaml`
+4. Check PVC: `kubectl get pvc ecommerce-data-pvc`
 
-### Minikube Issues
+## Scaling
 
-- **Insufficient resources**: Increase allocated resources with `minikube config set memory 4096`
-- **Driver issues**: Try alternative drivers like `virtualbox` if `docker` driver fails
+To scale the ML model deployment:
 
-### Kubeflow Issues
+```bash
+kubectl scale deployment ml-model --replicas=3
+```
 
-- **Pipeline failures**: Check component logs with `kubectl logs -n kubeflow <pod-name>`
-- **UI not accessible**: Ensure port forwarding is active with `kubectl port-forward -n kubeflow svc/ml-pipeline-ui 8080:80`
+## Cleanup
 
-## Next Steps
+To remove all deployments:
 
-1. Add monitoring with Prometheus and Grafana
-2. Implement automated testing for ML models
-3. Set up data versioning with DVC
-4. Add CI/CD for infrastructure using Terraform
+```bash
+kubectl delete deployment ml-model mcp-server
+kubectl delete service ml-model-service mcp-service
+kubectl delete configmap produits-scrapy-csv
+kubectl delete pvc ecommerce-data-pvc
+```

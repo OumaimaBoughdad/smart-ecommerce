@@ -14,6 +14,28 @@ spec:
       labels:
         app: ml-model
     spec:
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: ecommerce-data-pvc
+      - name: csv-data
+        configMap:
+          name: produits-scrapy-csv
+      initContainers:
+      - name: init-data
+        image: busybox
+        command: ['sh', '-c']
+        args:
+        - |
+          mkdir -p /data/output
+          echo "Copying CSV file to persistent volume..."
+          cp /csv-data/produits_scrapy.csv /data/produits_scrapy.csv
+          echo "Data initialization complete!"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+        - name: csv-data
+          mountPath: /csv-data
       containers:
       - name: ml-model
         image: oumaimaboughdad/ecommerce_ml:latest
@@ -26,10 +48,6 @@ spec:
         volumeMounts:
         - name: data-volume
           mountPath: /data
-      volumes:
-      - name: data-volume
-        persistentVolumeClaim:
-          claimName: ecommerce-data-pvc
 ---
 apiVersion: v1
 kind: Service
